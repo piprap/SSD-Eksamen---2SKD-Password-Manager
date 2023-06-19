@@ -38,12 +38,11 @@ def main():
                     decrypt_password(accounts)
 
                 elif authenticated_choice == 3:
+                    #clears all previous user information
                     user_data = tuple()
                     connected = False
                     user_id = ''
                     accounts = tuple()
-
-
 
         elif choice == 2:
             signup()
@@ -52,12 +51,11 @@ def main():
     
 
 
-
 def signup():
-    #Prompt user ID
+
     email = input("Enter email: ")
 
-    #Prompt User MP
+    #Get User MP
     master_password = getpass.getpass("Enter your master password: ") # Using getpass to safely get masterpassword input from terminal
     password_salt = bcrypt.gensalt()
     hashed_password = bcrypt.hashpw(master_password.encode("utf-8"), password_salt) # Hash PW & salt to avoid rainbowtables 
@@ -65,7 +63,7 @@ def signup():
     print('write down your masterpassword on piece of paper')
     input("You are about to generate your secret key - This should not be shown to anyone - Enter to continue...")
 
-    #GenerateSecretKey
+    #GenerateSecretKey with 32 random chars.
     secret_key = generate_random_string(32)
     print("SECRET KEY: ", secret_key)
 
@@ -75,33 +73,27 @@ def signup():
     
     #Write ENCODED secret key to file: 
     salt = generate_salt()
-    print("salt: ", salt)
     
     #encode secret key with masterpassword
-    encrypted_secret_key = encrypt_secret_key(secret_key, master_password, salt, 'secret_key.txt') 
-    print("Encrypted secret key: ", encrypted_secret_key)
-
+    encrypted_secret_key = encrypt_secret_key(secret_key, master_password, salt, 'secret_key.txt')
 
     #DB Func
     createUser(email, hashed_password, password_salt)
-    
     return
 
 
 def login():
-    #Prompt ID
-    email = input("Enter email: ")
+    
+    email = input("Enter your email: ")
     
     #Get MP & SALT
     results = getUserPWHash(email)  # Replace with the stored hashed password
-    salt = results[1]
     stored_hashed_password = results[0] #decode("utf-8")
+    salt = results[1]
 
-
-    #Prompt MP
+    #Get MP
     master_password = getpass.getpass("Enter your master password: ") # Using getpass to safely get masterpassword input from terminal
     hashed_password = bcrypt.hashpw(master_password.encode("utf-8"), salt.encode("utf-8")) # Hash PW & salt to avoid rainbowtables 
-
 
     # Compare the stored hashed password with the provided password
     if bcrypt.checkpw(master_password.encode("utf-8"), stored_hashed_password.encode("utf-8")):
@@ -173,9 +165,6 @@ def decrypt_password(accounts):
                 return
         print("Account not found")
 
-        
-
-    #MP + SKey = DerrivedKey
     return
 
 def encrypt_secret_key(secret_key, master_password, salt, file_path):
@@ -205,12 +194,13 @@ def decrypt_secret_key(master_password, file_path):
 
     return secret_key.decode()
 
+
+# Generate a random salt of 16 bytes
 def generate_salt():
-    # Generate a random salt
     return os.urandom(16)
 
+# Derive key from the master password & sometimes secret key combined.
 def derive_key(master_password, salt):
-    # Generate a derived key from the master password
     key = PBKDF2(master_password, salt, dkLen=32, count=100000)  # 32-byte key
     return key
 
@@ -243,12 +233,6 @@ def addPassword(user_id):
     createAccount(user_id, service, encrypted_password, encryption_password_salt, authentication_tag, nonce)
     return
 
-def getPasswords(): #delete? ? 
-    user_id = 12
-    accounts = getAccounts(12)
-    print(accounts)
-    return
-
 def generate_random_string(length=12):
 
     # string.ascii_letters = abcdefghijklmnopqrstuvwxyz - upper & lower case.
@@ -257,7 +241,6 @@ def generate_random_string(length=12):
     chars = string.ascii_letters + string.digits + string.punctuation
 
     return ''.join(random.choice(chars) for _ in range(length)) # Returns a string consisting of length amount of random chars from the chars string
-
 
 main()
 
