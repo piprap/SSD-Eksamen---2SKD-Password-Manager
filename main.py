@@ -22,8 +22,6 @@ def main():
             user_id = user_data[1]
             accounts = user_data[2] 
 
-
-            #
             while connected == True:
                 print('\nPress 1. to add service \nPress 2. to list services \nPress 3. to logout')
                 authenticated_choice = int(input("Choose an option: "))
@@ -34,7 +32,7 @@ def main():
                     accounts = getAccounts(user_id)
 
                 elif authenticated_choice == 2:
-                    decrypt_password(accounts)
+                    decrypt_password(accounts) 
 
                 elif authenticated_choice == 3:
                     #clears all previous user information
@@ -49,38 +47,48 @@ def main():
             running = False
     
 
-
+# Creates a user and saves it to the database
 def signup():
 
     email = input("Enter email: ")
 
     #Get User MP
-    master_password = getpass.getpass("Enter your master password: ") # Using getpass to safely get masterpassword input from terminal
+    master_password = getpass.getpass("Enter your master password: ") # Using getpass to safely get master password input from terminal
+    master_password2 = getpass.getpass("Enter your master password AGAIN: ")
+
+    while(master_password != master_password2):
+        print('The two passwords did not match, try again')
+        #Get User MP
+        master_password = getpass.getpass("Enter your master password: ") 
+        master_password2 = getpass.getpass("Enter your master password AGAIN: ")
+        
+        
+    print('Master password confirmed')
+
     password_salt = bcrypt.gensalt() #generating salt with bcrypt function
     hashed_password = bcrypt.hashpw(master_password.encode("utf-8"), password_salt) # Hash PW & salt to avoid rainbowtables 
 
-    print('write down your masterpassword on piece of paper')
+    print('write down your master password on piece of paper')
     input("You are about to generate your secret key - This should not be shown to anyone - Enter to continue...")
 
     #GenerateSecretKey with 32 random chars.
     secret_key = generate_random_string(32)
     print("SECRET KEY: ", secret_key)
 
-    print('Write down your secret key and store it safely with your masterpassword. Preferably in a bank box.')
+    print('Write down your secret key and store it safely with your master password. Preferably in a bank box.')
     print('Your secret key will also be saved to folder of your password manager. DO NOT DELETE OR SHARE YOUR SECRET KEY')
     print('Your secret key is used in combination with your Master Password to access the rest of your passwords in the vualt')
     
-    #Write ENCODED secret key to file: 
     salt = generate_salt()
     
-    #encode secret key with masterpassword
+    #encode secret key with master password and write to file
     encrypted_secret_key = encrypt_secret_key(secret_key, master_password, salt, 'secret_key.txt')
 
-    #DB Func
+    #Save user in DB
     createUser(email, hashed_password, password_salt)
     return
 
-
+# Login returns user information
 def login():
     
     email = input(f"\nEnter your email: ")
@@ -91,7 +99,7 @@ def login():
     salt = results[1]
 
     #Get MP
-    master_password = getpass.getpass("Enter your master password: ") # Using getpass to safely get masterpassword input from terminal
+    master_password = getpass.getpass("Enter your master password: ")
     hashed_password = bcrypt.hashpw(master_password.encode("utf-8"), salt.encode("utf-8")) # Hash PW & salt to avoid rainbowtables 
 
     # Compare the stored hashed password with the provided password
@@ -115,6 +123,7 @@ def login():
         print("Email or password is incorrect! Try again")
         login()
 
+# Encrypts a password for a service, using a two secrets key derrived from the master password combined with the secret key
 def encrypt_password(vault_password, two_secrets_key):
 
     cipher = AES.new(two_secrets_key, AES.MODE_EAX)
@@ -122,6 +131,8 @@ def encrypt_password(vault_password, two_secrets_key):
     
     return ciphertext, cipher.nonce, tag
 
+#This function lists all services/accounts the user has - 
+#It then gives the option to decrypt a service password by decrypting it with the key derived from the secret key, and master password
 def decrypt_password(accounts):
     
     #List all accounts by service name:
@@ -138,7 +149,7 @@ def decrypt_password(accounts):
         for service in accounts:
             if service[2] == selected_service:
                 #get MP
-                master_password = getpass.getpass(f"Enter your master password to decrypt password for {selected_service}: ") # Using getpass to safely get masterpassword input from terminal
+                master_password = getpass.getpass(f"Enter your master password to decrypt password for {selected_service}: ") # Using getpass to safely get master password input from terminal
 
                 #get decrypted secret key
                 decrypted_secret_key = decrypt_secret_key(master_password, 'secret_key.txt')
@@ -160,6 +171,8 @@ def decrypt_password(accounts):
 
     return
 
+
+#This is the function that encrypts the secret key with just the master password & salt, and then stores the cipher locally.
 def encrypt_secret_key(secret_key, master_password, salt, file_path):
     key = derive_key(master_password, salt)
 
@@ -173,6 +186,7 @@ def encrypt_secret_key(secret_key, master_password, salt, file_path):
         file.write(ciphertext)
     return ciphertext
 
+#This is the function that decrypts the secret key which is stored locally, with a key derived from the master password & salt.
 def decrypt_secret_key(master_password, file_path):
     with open(file_path, 'rb') as file:
         salt = file.read(16)
@@ -192,20 +206,20 @@ def decrypt_secret_key(master_password, file_path):
 def generate_salt():
     return os.urandom(16)
 
-# Derive key from the master password & sometimes secret key combined.
-def derive_key(master_password, salt):
-    key = PBKDF2(master_password, salt, dkLen=32, count=100000)  # 32-byte key
+# Derive key from the master password, salt & sometimes the secret key combined.
+def derive_key(key_input, salt):
+    key = PBKDF2(key_input, salt, dkLen=32, count=100000)  # 32-byte key
     return key
 
-
+# Creates a password/service in the database encrypted using 2skd
 def addPassword(user_id):
     #get service
     service = input(f"\nEnter service name: ")
     #get pw
-    vault_password = getpass.getpass(f"Enter the password for {service}: ") # Using getpass to safely get masterpassword input from terminal
+    vault_password = getpass.getpass(f"Enter the password for {service}: ")
 
     #get MP
-    master_password = getpass.getpass("Enter your master password: ") # Using getpass to safely get masterpassword input from terminal
+    master_password = getpass.getpass("Enter your master password: ") 
     
     #get decrypted secret key
     decrypted_secret_key = decrypt_secret_key(master_password, 'secret_key.txt')
@@ -226,6 +240,8 @@ def addPassword(user_id):
     createAccount(user_id, service, encrypted_password, encryption_password_salt, authentication_tag, nonce)
     return
 
+
+#Generates random string
 def generate_random_string(length=12):
 
     # string.ascii_letters = abcdefghijklmnopqrstuvwxyz - upper & lower case.
@@ -236,4 +252,3 @@ def generate_random_string(length=12):
     return ''.join(random.choice(chars) for _ in range(length)) # Returns a string consisting of length amount of random chars from the chars string
 
 main()
-
