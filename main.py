@@ -5,11 +5,10 @@ from Crypto.Cipher import AES
 
 import os, base64
 
-user_id = ''
-
 def main():
 
     running = True
+    user_id = ''
 
     while running == True:
         print('\nPress 1. to login \nPress 2. to register \nPress 3. to exit')
@@ -57,7 +56,7 @@ def signup():
 
     #Get User MP
     master_password = getpass.getpass("Enter your master password: ") # Using getpass to safely get masterpassword input from terminal
-    password_salt = bcrypt.gensalt()
+    password_salt = bcrypt.gensalt() #generating salt with bcrypt function
     hashed_password = bcrypt.hashpw(master_password.encode("utf-8"), password_salt) # Hash PW & salt to avoid rainbowtables 
 
     print('write down your masterpassword on piece of paper')
@@ -84,7 +83,7 @@ def signup():
 
 def login():
     
-    email = input("Enter your email: ")
+    email = input(f"\nEnter your email: ")
     
     #Get MP & SALT
     results = getUserPWHash(email)  # Replace with the stored hashed password
@@ -109,16 +108,12 @@ def login():
         
         #decrypt secret key:
         decrypted_secret_key = decrypt_secret_key(master_password, 'secret_key.txt')
-        print("Decrypted secret key: ", decrypted_secret_key)
 
         return True, user_id, accounts
 
     else:
         print("Email or password is incorrect! Try again")
         login()
-
-def logout():
-    return
 
 def encrypt_password(vault_password, two_secrets_key):
 
@@ -130,13 +125,13 @@ def encrypt_password(vault_password, two_secrets_key):
 def decrypt_password(accounts):
     
     #List all accounts by service name:
-    print("List of all services you have a stored password for:") 
+    print(f"\nList of all services you have a stored password for:") 
     for service in accounts:
-        print(service[2])
+        print(" - ", service[2])
     
 
     #Select password that will be decrypted.
-    selected_service = input("Enter the service name (case sensitive) or exit to quit")
+    selected_service = input("Enter the service name (case sensitive) or exit to quit: ")
     if selected_service == "exit":
         return
     else:
@@ -148,20 +143,18 @@ def decrypt_password(accounts):
                 #get decrypted secret key
                 decrypted_secret_key = decrypt_secret_key(master_password, 'secret_key.txt')
                 
-                
                 #Initialize variables used to decrypt 
                 ciphertext = service[3]
                 encryption_password_salt = service[4] 
                 tag = service[5]
                 nonce = service[6]
 
-
                 two_secrets_key = derive_key(master_password + decrypted_secret_key, encryption_password_salt)
 
                 cipher = AES.new(two_secrets_key, AES.MODE_EAX, nonce)
                 secret_key = cipher.decrypt_and_verify(ciphertext, tag).decode()
 
-                print(f"The password for {selected_service} is {secret_key}")
+                print(f"The password for {selected_service} is {secret_key} \n")
                 return
         print("Account not found")
 
@@ -207,9 +200,9 @@ def derive_key(master_password, salt):
 
 def addPassword(user_id):
     #get service
-    service = input("Enter service name: ")
+    service = input(f"\nEnter service name: ")
     #get pw
-    vault_password = getpass.getpass(f"Enter the password for {service}") # Using getpass to safely get masterpassword input from terminal
+    vault_password = getpass.getpass(f"Enter the password for {service}: ") # Using getpass to safely get masterpassword input from terminal
 
     #get MP
     master_password = getpass.getpass("Enter your master password: ") # Using getpass to safely get masterpassword input from terminal
