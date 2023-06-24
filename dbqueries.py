@@ -3,13 +3,13 @@ import bcrypt
 from db_connection import get_database_connection
 
 
-def createUser(email, hashed_password, password_salt):
+def createUser(email, hashed_password, password_salt, twofactor_secret_key, twofactor_status):
     conn = get_database_connection()
     cursor = conn.cursor(prepared=True)
 
     try:
-        query = "INSERT INTO users (email, master_password, password_salt) VALUES (?, ?, ?)"
-        values = (email, hashed_password, password_salt)
+        query = "INSERT INTO users (email, master_password, password_salt, twofactor_secret_key, twofactor_status) VALUES (?, ?, ?, ?, ?)"
+        values = (email, hashed_password, password_salt, twofactor_secret_key, twofactor_status)
         
         cursor.execute(query, values)
         conn.commit()
@@ -51,11 +51,11 @@ def getUserId(email):
     conn.close()
     return result[0]
 
-def getUserPWHash(email):
+def getUserPWHash(email): #should be renamed or split into two functions.
     conn = get_database_connection()
     cursor = conn.cursor(prepared=True)
 
-    query = "SELECT master_password, password_salt FROM users WHERE email = ?"
+    query = "SELECT master_password, password_salt, twofactor_secret_key, twofactor_status FROM users WHERE email = ?"
     values = (email,)
     
     cursor.execute(query, values)

@@ -1,9 +1,12 @@
 from dbqueries import *
-from cryptography.fernet import Fernet
 from Crypto.Protocol.KDF import PBKDF2
 from Crypto.Cipher import AES
 
+
 import os, base64
+import pyotp
+import qrcode
+
 
 def main():
 
@@ -52,6 +55,33 @@ def signup():
 
     email = input("Enter email: ")
 
+    twofactor_secret_key = pyotp.random_base32()
+    twofactor_added = False
+
+    #Want 2 add 2fa?
+    print('Would you like to add 2 factor authentication?\nPress 1. to add 2factor\nPress 2. to skip')
+    #input
+    twofactor_acceptance = int(input("Choose an option: "))
+    #if input = yes
+    if(twofactor_acceptance == 1):
+        totp = pyotp.TOTP(twofactor_secret_key)
+        qr_code = qrcode.make(totp.provisioning_uri(name=email, issuer_name='PasswordManagerE'))
+        qr_code.show()  # Display the QR code
+
+        while(twofactor_added == False):
+            totp_code = input("Enter your 2FA code: ")
+            totp = pyotp.TOTP(twofactor_secret_key)
+            is_valid = totp.verify(totp_code)
+            if is_valid:
+                print('Two factor authentication confirmed')
+                twofactor_added = True
+            else:
+                print('Invalid 2FA code - Try again.')
+
+    else:
+        print('You have choosen to skip 2factor authentication. It is highly advised to use in order to increase account security.')
+
+
     #Get User MP
     master_password = getpass.getpass("Enter your master password: ") # Using getpass to safely get master password input from terminal
     master_password2 = getpass.getpass("Enter your master password AGAIN: ")
@@ -69,6 +99,8 @@ def signup():
     hashed_password = bcrypt.hashpw(master_password.encode("utf-8"), password_salt) # Hash PW & salt to avoid rainbowtables 
 
     print('write down your master password on piece of paper')
+
+
     input("You are about to generate your secret key - This should not be shown to anyone - Enter to continue...")
 
     #GenerateSecretKey with 32 random chars.
@@ -85,7 +117,7 @@ def signup():
     encrypted_secret_key = encrypt_secret_key(secret_key, master_password, salt, 'secret_key.txt')
 
     #Save user in DB
-    createUser(email, hashed_password, password_salt)
+    createUser(email, hashed_password, password_salt, twofactor_secret_key, twofactor_added)
     return
 
 # Login returns user information
@@ -94,9 +126,11 @@ def login():
     email = input(f"\nEnter your email: ")
     
     #Get MP & SALT
-    results = getUserPWHash(email)  # Replace with the stored hashed password
+    results = getUserPWHash(email)  # Returns hashed master pass[0] & salt[1]
     stored_hashed_password = results[0] #decode("utf-8")
     salt = results[1]
+    twofactor_secret_key = results[2]
+    twofactor_status = results[3]
 
     #Get MP
     master_password = getpass.getpass("Enter your master password: ")
@@ -104,18 +138,28 @@ def login():
 
     # Compare the stored hashed password with the provided password
     if bcrypt.checkpw(master_password.encode("utf-8"), stored_hashed_password.encode("utf-8")):
-        print(f"Password is correct! - Welcome {email}")
-        #Get accounts
-        user_id = getUserId(email) #SKAL FIXES
 
-        #Decrypt secret-key file with MP 
+
+        if(twofactor_status == 1):
+            twofactor_completed = False
+            while(twofactor_completed == False):
+                totp_code = input("Enter your 2FA code: ")
+                totp = pyotp.TOTP(twofactor_secret_key)
+                is_valid = totp.verify(totp_code)
+                if is_valid:
+                    # Proceed with successful login
+                    print('2FA code validated.')
+                    twofactor_completed = True
+
+                else:
+                    # Handle incorrect 2FA code
+                    print('2FA code wrong - Try again.')
+        print(f"Welcome {email}")
+        #Get accounts
+        user_id = getUserId(email)
 
         #Get passwords associated with user_id
         accounts = getAccounts(user_id)
-
-        
-        #decrypt secret key:
-        decrypted_secret_key = decrypt_secret_key(master_password, 'secret_key.txt')
 
         return True, user_id, accounts
 

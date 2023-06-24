@@ -3,6 +3,8 @@ CREATE TABLE users (
   email VARCHAR(255) NOT NULL UNIQUE,
   master_password VARCHAR(255) NOT NULL,
   password_salt VARCHAR(255),
+  twofactor_secret_key VARCHAR(255),
+  twofactor_status BOOLEAN DEFAULT FALSE,
   PRIMARY KEY (id)
 );
 
